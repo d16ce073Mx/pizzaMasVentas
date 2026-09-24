@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Depurar PizzaMas",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/pizzaMasApp",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Compilar C++",
+            "stopOnEntry": false
+        }
+    ]
+}

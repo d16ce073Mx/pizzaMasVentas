@@ -1,0 +1,22 @@
+# Variables de entorno
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# CMake / compilación
+build/
+cmake-build-*/
+
+# Ejecutables
+pizzaMasVentas
+pizzaMasApp
+/pizzaMasVentas/pizzaMasVentas
+
+# Símbolos de depuración
+*.dSYM/
+
+# Archivos temporales
+*.tmp
+*.log
