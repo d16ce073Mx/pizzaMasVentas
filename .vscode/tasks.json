@@ -4,14 +4,16 @@
         {
             "type": "shell",
             "label": "Compilar C++",
-            "command": "/usr/bin/clang++",
+            "command": "cmake",
             "args": [
-                "-std=c++17",
-                "-g",
-                "${workspaceFolder}/src/main.cpp",
-                "-o",
-                "${workspaceFolder}/pizzaMasApp"
+                "--build",
+                "${workspaceFolder}/build"
             ],
+            "options": {
+                "env": {
+                    "SDKROOT": "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
+                }
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true

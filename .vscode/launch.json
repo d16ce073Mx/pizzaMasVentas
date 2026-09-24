@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Depurar PizzaMas",
+            "name": "Depurar PizzaMas Ventas",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/pizzaMasApp",
+            "program": "${workspaceFolder}/build/pizzaMasVentas",
             "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Compilar C++",
