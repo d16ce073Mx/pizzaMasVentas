@@ -19,5 +19,10 @@ namespace pizzaMas
 
         crow::json::wvalue obtenerProductosVenta();
 
+        crow::json::wvalue obtenerProductoVenta(
+            long long productoId,
+            long long orgId
+        );
+
     };
 }

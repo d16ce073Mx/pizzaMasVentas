@@ -134,4 +134,124 @@ namespace pizzaMas
 
         return respuesta;
     }
+
+    crow::json::wvalue VentasRepository::obtenerProductoVenta(
+    long long productoId,
+    long long orgId)
+    {
+        crow::json::wvalue respuesta;
+
+        const std::string connectionString =
+            "host=" + config.dbHost +
+            " port=" + std::to_string(config.dbPort) +
+            " dbname=" + config.dbName +
+            " user=" + config.dbUser +
+            " password=" + config.dbPassword;
+
+        PGconn* connection =
+            PQconnectdb(connectionString.c_str());
+
+        if (PQstatus(connection) != CONNECTION_OK)
+        {
+            respuesta["error"] =
+                "No fue posible conectar con PostgreSQL";
+
+            PQfinish(connection);
+
+            return respuesta;
+        }
+
+        const char* sql = R"SQL(
+            SELECT
+                p.pm_producto_id,
+                p.pm_producto_codigo,
+                p.pm_producto_nombre,
+                p.pm_producto_descripcion,
+                p.pm_producto_ventas_tipo,
+                l.pm_precio_venta,
+                lp.pm_org_id
+            FROM pm_productos p
+            INNER JOIN pm_listas_precios_lineas l
+                ON l.pm_producto_id = p.pm_producto_id
+            INNER JOIN pm_listas_precios lp
+                ON lp.pm_lista_precio_id = l.pm_lista_precio_id
+            WHERE p.pm_producto_id = $1
+            AND p.pm_producto_ventas = 'VENTAS'
+            AND lp.pm_org_id = $2
+            AND p.pm_fecha_fin IS NULL
+            AND lp.pm_fecha_fin IS NULL
+            AND l.pm_fecha_fin IS NULL;
+        )SQL";
+
+        std::string productoIdStr =
+            std::to_string(productoId);
+
+        std::string orgIdStr =
+            std::to_string(orgId);
+
+        const char* params[2] = {
+            productoIdStr.c_str(),
+            orgIdStr.c_str()
+        };
+
+        PGresult* result =
+            PQexecParams(
+                connection,
+                sql,
+                2,
+                nullptr,
+                params,
+                nullptr,
+                nullptr,
+                0
+            );
+
+        if (PQresultStatus(result) != PGRES_TUPLES_OK)
+        {
+            respuesta["error"] =
+                "Error al consultar el producto de venta";
+
+            PQclear(result);
+            PQfinish(connection);
+
+            return respuesta;
+        }
+
+        if (PQntuples(result) == 0)
+        {
+            respuesta["error"] =
+                "Producto de venta no encontrado";
+
+            PQclear(result);
+            PQfinish(connection);
+
+            return respuesta;
+        }
+
+        respuesta["id"] =
+            std::stoll(PQgetvalue(result, 0, 0));
+
+        respuesta["codigo"] =
+            PQgetvalue(result, 0, 1);
+
+        respuesta["nombre"] =
+            PQgetvalue(result, 0, 2);
+
+        respuesta["descripcion"] =
+            PQgetvalue(result, 0, 3);
+
+        respuesta["tipo"] =
+            PQgetvalue(result, 0, 4);
+
+        respuesta["precio"] =
+            std::stod(PQgetvalue(result, 0, 5));
+
+        respuesta["org_id"] =
+            std::stoll(PQgetvalue(result, 0, 6));
+
+        PQclear(result);
+        PQfinish(connection);
+
+        return respuesta;
+    }
 }

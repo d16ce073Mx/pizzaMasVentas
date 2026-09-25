@@ -22,4 +22,14 @@ namespace pizzaMas
         return repository.probarConexion();
     }
 
+    crow::json::wvalue VentasService::obtenerProductoVenta(
+        long long productoId,
+        long long orgId)
+    {
+        return repository.obtenerProductoVenta(
+            productoId,
+            orgId
+        );
+    }
+
 }
