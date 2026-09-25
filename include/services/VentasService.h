@@ -16,5 +16,7 @@ namespace pizzaMas
 
         std::string obtenerMensaje();
         bool probarConexion();
+
+        crow::json::wvalue obtenerProductosVenta();
     };
 }

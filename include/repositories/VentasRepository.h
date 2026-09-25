@@ -1,5 +1,5 @@
 #pragma once
-
+#include "crow.h"
 #include "config/Config.h"
 
 #include <string>
@@ -16,5 +16,8 @@ namespace pizzaMas
 
         std::string obtenerMensaje();
         bool probarConexion();
+
+        crow::json::wvalue obtenerProductosVenta();
+
     };
 }

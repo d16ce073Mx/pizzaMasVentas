@@ -11,6 +11,14 @@ namespace pizzaMas
             return service.obtenerMensaje();
         });
 
+        CROW_ROUTE(app, "/api/ventas/productos")
+        ([&service] {
+            return crow::response(
+                service.obtenerProductosVenta()
+            );
+        });
+
+
         CROW_ROUTE(app, "/api/ventas/health/db")
         ([&service] {
             if (service.probarConexion())
