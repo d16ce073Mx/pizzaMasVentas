@@ -32,4 +32,32 @@ namespace pizzaMas
         );
     }
 
+    crow::json::wvalue VentasService::crearRecibo(
+        long long orgId,
+        const std::string& tipoConsumo,
+        long long createdBy)
+    {
+        return repository.crearRecibo(
+            orgId,
+            tipoConsumo,
+            createdBy
+        );
+    }
+
+    int VentasService::crearLineaRecibo(
+        long long reciboId,
+        long long productoId,
+        double cantidad,
+        long long createdBy,
+        crow::json::wvalue& respuesta)
+    {
+        return repository.crearLineaRecibo(
+            reciboId,
+            productoId,
+            cantidad,
+            createdBy,
+            respuesta
+        );
+    }
+
 }

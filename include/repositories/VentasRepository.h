@@ -24,5 +24,19 @@ namespace pizzaMas
             long long orgId
         );
 
+        crow::json::wvalue crearRecibo(
+            long long orgId,
+            const std::string& tipoConsumo,
+            long long createdBy
+        );
+
+        int crearLineaRecibo(
+            long long reciboId,
+            long long productoId,
+            double cantidad,
+            long long createdBy,
+            crow::json::wvalue& respuesta
+        );
+
     };
 }
