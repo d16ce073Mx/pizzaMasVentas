@@ -1,5 +1,5 @@
 #include "repositories/VentasRepository.h"
-
+#include <iostream>
 #include <libpq-fe.h>
 
 namespace pizzaMas
@@ -255,13 +255,531 @@ namespace pizzaMas
             return respuesta;
         }
 
-    crow::json::wvalue VentasRepository::crearRecibo(
-        long long orgId,
-        const std::string& tipoConsumo,
-        long long createdBy)
-    {
-        crow::json::wvalue respuesta;
+        crow::json::wvalue VentasRepository::crearRecibo(
+            long long orgId,
+            const std::string& tipoConsumo,
+            long long createdBy)
+        {
+            crow::json::wvalue respuesta;
 
+            const std::string connectionString =
+                "host=" + config.dbHost +
+                " port=" + std::to_string(config.dbPort) +
+                " dbname=" + config.dbName +
+                " user=" + config.dbUser +
+                " password=" + config.dbPassword;
+
+            PGconn* connection =
+                PQconnectdb(connectionString.c_str());
+
+            if (PQstatus(connection) != CONNECTION_OK)
+            {
+                respuesta["error"] =
+                    "No fue posible conectar con PostgreSQL";
+
+                PQfinish(connection);
+
+                return respuesta;
+            }
+
+            const char* sql = R"SQL(
+                INSERT INTO public.pm_recibos_ventas (
+                    pm_org_id,
+                    pm_recibo_venta,
+                    pm_recibo_tipo_consumo,
+                    created_by
+                )
+                VALUES (
+                    $1::INTEGER,
+                    fn_generar_recibo_folio($1),
+                    $2,
+                    $3
+                )
+                RETURNING
+                    pm_recibo_id,
+                    pm_org_id,
+                    pm_recibo_venta,
+                    pm_recibo_fecha_hora,
+                    pm_recibo_tipo_consumo,
+                    pm_recibo_subtotal,
+                    pm_recibo_descuento,
+                    pm_recibo_impuesto,
+                    pm_recibo_total,
+                    pm_recibo_estatus;
+            )SQL";
+
+            std::string orgIdStr =
+                std::to_string(orgId);
+
+            std::string createdByStr =
+                std::to_string(createdBy);
+
+            const char* params[3] = {
+                orgIdStr.c_str(),
+                tipoConsumo.c_str(),
+                createdByStr.c_str()
+            };
+
+            PGresult* result =
+                PQexecParams(
+                    connection,
+                    sql,
+                    3,
+                    nullptr,
+                    params,
+                    nullptr,
+                    nullptr,
+                    0
+                );
+
+            if (PQresultStatus(result) != PGRES_TUPLES_OK)
+            {
+                respuesta["error"] =
+                    PQerrorMessage(connection);
+
+                PQclear(result);
+                PQfinish(connection);
+
+                return respuesta;
+            }
+
+            respuesta["id"] =
+                std::stoll(PQgetvalue(result, 0, 0));
+
+            respuesta["org_id"] =
+                std::stoll(PQgetvalue(result, 0, 1));
+
+            respuesta["folio"] =
+                PQgetvalue(result, 0, 2);
+
+            respuesta["fecha_hora"] =
+                PQgetvalue(result, 0, 3);
+
+            respuesta["tipo_consumo"] =
+                PQgetvalue(result, 0, 4);
+
+            respuesta["subtotal"] =
+                std::stod(PQgetvalue(result, 0, 5));
+
+            respuesta["descuento"] =
+                std::stod(PQgetvalue(result, 0, 6));
+
+            respuesta["impuesto"] =
+                std::stod(PQgetvalue(result, 0, 7));
+
+            respuesta["total"] =
+                std::stod(PQgetvalue(result, 0, 8));
+
+            respuesta["estatus"] =
+                PQgetvalue(result, 0, 9);
+
+            PQclear(result);
+            PQfinish(connection);
+
+            return respuesta;
+        }
+
+        crow::json::wvalue VentasRepository::obtenerRecibo(
+            long long reciboId)
+        {
+            crow::json::wvalue respuesta;
+
+            const std::string connectionString =
+                "host=" + config.dbHost +
+                " port=" + std::to_string(config.dbPort) +
+                " dbname=" + config.dbName +
+                " user=" + config.dbUser +
+                " password=" + config.dbPassword;
+
+            PGconn* connection =
+                PQconnectdb(connectionString.c_str());
+
+            if (PQstatus(connection) != CONNECTION_OK)
+            {
+                respuesta["error"] =
+                    "No fue posible conectar con PostgreSQL";
+
+                PQfinish(connection);
+
+                return respuesta;
+            }
+
+            PGresult* beginResult = PQexec(connection, "BEGIN");
+
+            if (PQresultStatus(beginResult) != PGRES_COMMAND_OK)
+            {
+                respuesta["error"] =
+                    PQerrorMessage(connection);
+
+                PQclear(beginResult);
+                PQfinish(connection);
+
+                return 500;
+            }
+
+            PQclear(beginResult);
+
+            const char* sql = R"SQL(
+                SELECT
+                    r.pm_recibo_id,
+                    r.pm_org_id,
+                    r.pm_recibo_venta,
+                    r.pm_recibo_fecha_hora,
+                    r.pm_recibo_tipo_consumo,
+                    r.pm_recibo_subtotal,
+                    r.pm_recibo_descuento,
+                    r.pm_recibo_impuesto,
+                    r.pm_recibo_total,
+                    r.pm_recibo_estatus,
+                    l.pm_recibo_venta_linea,
+                    l.pm_producto_id,
+                    p.pm_producto_codigo,
+                    p.pm_producto_nombre,
+                    l.pm_recibo_linea_cantidad,
+                    l.pm_recibo_linea_precio,
+                    l.pm_recibo_linea_descuento,
+                    l.pm_recibo_linea_impuesto,
+                    l.pm_recibo_linea_total
+                FROM public.pm_recibos_ventas r
+                    INNER JOIN public.pm_recibo_venta_lineas l
+                            ON l.pm_recibo_id = r.pm_recibo_id
+                    LEFT JOIN public.pm_productos p
+                        ON p.pm_producto_id = l.pm_producto_id
+                WHERE r.pm_recibo_id = $1::BIGINT
+                ORDER BY
+                    l.pm_recibo_venta_linea;
+            )SQL";
+
+            std::string reciboIdStr =
+                std::to_string(reciboId);
+
+            const char* params[1] = {
+                reciboIdStr.c_str()
+            };
+
+            std::cout << "DEBUG: antes de PQexecParams" << std::endl;
+
+            PGresult* result =
+                PQexecParams(
+                    connection,
+                    sql,
+                    1,
+                    nullptr,
+                    params,
+                    nullptr,
+                    nullptr,
+                    0
+                );
+
+            std::cout << "DEBUG: despues de PQexecParams" << std::endl;
+            
+            std::cout << "DEBUG: antes de PQresultStatus" << std::endl;
+
+            ExecStatusType estado = PQresultStatus(result);
+
+            std::cout << "DEBUG: despues de PQresultStatus" << std::endl;
+
+            if (estado != PGRES_TUPLES_OK)
+            {
+                respuesta["error"] =
+                    PQerrorMessage(connection);
+
+                PQclear(result);
+                PQfinish(connection);
+
+                return respuesta;
+            }
+
+            std::cout << "DEBUG: antes de PQntuples" << std::endl;
+
+            int numeroFilas = PQntuples(result);
+
+            std::cout << "DEBUG: despues de PQntuples = "
+                    << numeroFilas
+                    << std::endl;
+
+            std::cout << "DEBUG: status OK" << std::endl;
+
+            if (PQntuples(result) == 0)
+            {
+                respuesta["error"] =
+                    "Recibo no encontrado";
+
+                PQclear(result);
+                PQfinish(connection);
+
+                return respuesta;
+            }
+
+            std::cout << "DEBUG: filas = "
+                << PQntuples(result)
+                << std::endl;
+
+            std::cout << "DEBUG: construyendo encabezado" << std::endl;    
+            // Encabezado
+            respuesta["id"] =
+                std::stoll(PQgetvalue(result, 0, 0));
+
+            respuesta["org_id"] =
+                std::stoll(PQgetvalue(result, 0, 1));
+
+            respuesta["folio"] =
+                PQgetvalue(result, 0, 2);
+
+            respuesta["fecha_hora"] =
+                PQgetvalue(result, 0, 3);
+
+            respuesta["tipo_consumo"] =
+                PQgetvalue(result, 0, 4);
+
+            respuesta["subtotal"] =
+                std::stod(PQgetvalue(result, 0, 5));
+
+            respuesta["descuento"] =
+                std::stod(PQgetvalue(result, 0, 6));
+
+            respuesta["impuesto"] =
+                std::stod(PQgetvalue(result, 0, 7));
+
+            respuesta["total"] =
+                std::stod(PQgetvalue(result, 0, 8));
+
+            respuesta["estatus"] =
+                PQgetvalue(result, 0, 9);
+
+            // Líneas
+            std::cout << "DEBUG: creando arreglo lineas" << std::endl;
+
+            crow::json::wvalue lineas =
+                crow::json::wvalue::list();
+
+            std::cout << "DEBUG: arreglo lineas creado" << std::endl;
+
+            int indiceLinea = 0;
+            std::cout << "DEBUG: antes de lineas" << std::endl;
+
+            for (int i = 0; i < PQntuples(result); ++i)
+            {
+                if (PQgetisnull(result, i, 10))
+                {
+                    continue;
+                }
+
+                crow::json::wvalue linea;
+
+                std::cout << "DEBUG: inicio linea " << i << std::endl;
+
+                std::cout << "DEBUG: antes linea" << std::endl;
+                linea["linea"] = std::stoi(PQgetvalue(result, i, 10));
+
+                std::cout << "DEBUG: antes producto_id" << std::endl;
+                linea["producto_id"] = std::stoll(PQgetvalue(result, i, 11));
+
+                std::cout << "DEBUG: antes codigo" << std::endl;
+                linea["codigo"] = PQgetvalue(result, i, 12);
+
+                std::cout << "DEBUG: antes producto" << std::endl;
+                linea["producto"] = PQgetvalue(result, i, 13);
+
+                std::cout << "DEBUG: antes cantidad" << std::endl;
+                linea["cantidad"] = std::stod(PQgetvalue(result, i, 14));
+
+                std::cout << "DEBUG: antes precio" << std::endl;
+                linea["precio"] = std::stod(PQgetvalue(result, i, 15));
+
+                std::cout << "DEBUG: antes descuento" << std::endl;
+                linea["descuento"] = std::stod(PQgetvalue(result, i, 16));
+
+                std::cout << "DEBUG: antes impuesto" << std::endl;
+                linea["impuesto"] = std::stod(PQgetvalue(result, i, 17));
+
+                std::cout << "DEBUG: antes total" << std::endl;
+                linea["total"] = std::stod(PQgetvalue(result, i, 18));
+
+                std::cout << "DEBUG: linea construida " << i << std::endl;
+                lineas[indiceLinea++] = std::move(linea);
+                std::cout << "DEBUG: linea agregada " << i << std::endl;
+            }            
+
+            std::cout << "DEBUG: for terminado" << std::endl;
+            respuesta["lineas"] = std::move(lineas);
+            //respuesta["lineas"] = std::move(lineas);
+            std::cout << "PQClear: for terminado" << std::endl;
+            PQclear(result);
+            PQfinish(connection);
+            std::cout << "Return Respuesta:" << std::endl;
+            return respuesta;
+        }
+
+        int VentasRepository::obtenerDatosPdfRecibo(
+            long long reciboId,
+            std::string& folio,
+            std::string& fechaHora,
+            std::string& tipoConsumo,
+            std::vector<LineaPdf>& lineas,
+            double& subtotal,
+            double& descuento,
+            double& impuesto,
+            double& total,
+            std::string& estatus)
+        {
+            const std::string connectionString =
+                "host=" + config.dbHost +
+                " port=" + std::to_string(config.dbPort) +
+                " dbname=" + config.dbName +
+                " user=" + config.dbUser +
+                " password=" + config.dbPassword;
+
+            PGconn* connection =
+                PQconnectdb(connectionString.c_str());
+
+            if (PQstatus(connection) != CONNECTION_OK)
+            {
+                PQfinish(connection);
+                return 500;
+            }
+
+            const char* sql = R"SQL(
+                SELECT
+                    r.pm_recibo_venta,
+                    r.pm_recibo_fecha_hora,
+                    r.pm_recibo_tipo_consumo,
+                    r.pm_recibo_subtotal,
+                    r.pm_recibo_descuento,
+                    r.pm_recibo_impuesto,
+                    r.pm_recibo_total,
+                    r.pm_recibo_estatus,
+                    l.pm_recibo_venta_linea,
+                    p.pm_producto_nombre,
+                    l.pm_recibo_linea_cantidad,
+                    l.pm_recibo_linea_precio,
+                    l.pm_recibo_linea_total
+                FROM public.pm_recibos_ventas r
+                LEFT JOIN public.pm_recibo_venta_lineas l
+                    ON l.pm_recibo_id = r.pm_recibo_id
+                LEFT JOIN public.pm_productos p
+                    ON p.pm_producto_id = l.pm_producto_id
+                WHERE r.pm_recibo_id = $1::BIGINT
+                ORDER BY
+                    l.pm_recibo_venta_linea;
+            )SQL";
+
+            std::string reciboIdStr =
+                std::to_string(reciboId);
+
+            const char* params[1] = {
+                reciboIdStr.c_str()
+            };
+
+            PGresult* result =
+                PQexecParams(
+                    connection,
+                    sql,
+                    1,
+                    nullptr,
+                    params,
+                    nullptr,
+                    nullptr,
+                    0
+                );
+
+            if (PQresultStatus(result) != PGRES_TUPLES_OK)
+            {
+                PQclear(result);
+                PQfinish(connection);
+                return 500;
+            }
+
+            if (PQntuples(result) == 0)
+            {
+                PQclear(result);
+                PQfinish(connection);
+                return 500;
+            }
+
+            /*
+            * Encabezado del recibo.
+            */
+            folio =
+                PQgetvalue(result, 0, 0);
+
+            fechaHora =
+                PQgetvalue(result, 0, 1);
+
+            tipoConsumo =
+                PQgetvalue(result, 0, 2);
+
+            subtotal =
+                std::stod(PQgetvalue(result, 0, 3));
+
+            descuento =
+                std::stod(PQgetvalue(result, 0, 4));
+
+            impuesto =
+                std::stod(PQgetvalue(result, 0, 5));
+
+            total =
+                std::stod(PQgetvalue(result, 0, 6));
+
+            estatus =
+                PQgetvalue(result, 0, 7);
+
+            /*
+            * El PDF únicamente se puede generar
+            * para recibos PAGADOS.
+            */
+            if (estatus != "PAGADO")
+            {
+                PQclear(result);
+                PQfinish(connection);
+                return 409;
+            }
+
+            /*
+            * Líneas del recibo.
+            */
+            lineas.clear();
+
+            for (int i = 0; i < PQntuples(result); ++i)
+            {
+                if (PQgetisnull(result, i, 8))
+                {
+                    continue;
+                }
+
+                LineaPdf linea;
+
+                linea.linea =
+                    std::stoi(PQgetvalue(result, i, 8));
+
+                linea.producto =
+                    PQgetvalue(result, i, 9);
+
+                linea.cantidad =
+                    std::stod(PQgetvalue(result, i, 10));
+
+                linea.precio =
+                    std::stod(PQgetvalue(result, i, 11));
+
+                linea.total =
+                    std::stod(PQgetvalue(result, i, 12));
+
+                lineas.push_back(
+                    std::move(linea)
+                );
+            }
+
+            PQclear(result);
+            PQfinish(connection);
+
+            return 200;
+        }
+
+    int VentasRepository::pagarRecibo(
+        long long reciboId,
+        long long updatedBy,
+        crow::json::wvalue& respuesta)
+    {
         const std::string connectionString =
             "host=" + config.dbHost +
             " port=" + std::to_string(config.dbPort) +
@@ -279,25 +797,19 @@ namespace pizzaMas
 
             PQfinish(connection);
 
-            return respuesta;
+            return 500;
         }
 
         const char* sql = R"SQL(
-            INSERT INTO public.pm_recibos_ventas (
-                pm_org_id,
-                pm_recibo_venta,
-                pm_recibo_tipo_consumo,
-                created_by
-            )
-            VALUES (
-                $1::INTEGER,
-                fn_generar_recibo_folio($1),
-                $2,
-                $3
-            )
+            UPDATE public.pm_recibos_ventas
+            SET
+                pm_recibo_estatus = 'PAGADO',
+                updated_by = $2::INTEGER,
+                updated_date = CURRENT_DATE
+            WHERE pm_recibo_id = $1::BIGINT
+            AND pm_recibo_estatus = 'ABIERTO'
             RETURNING
                 pm_recibo_id,
-                pm_org_id,
                 pm_recibo_venta,
                 pm_recibo_fecha_hora,
                 pm_recibo_tipo_consumo,
@@ -305,26 +817,27 @@ namespace pizzaMas
                 pm_recibo_descuento,
                 pm_recibo_impuesto,
                 pm_recibo_total,
-                pm_recibo_estatus;
+                pm_recibo_estatus,
+                updated_by,
+                updated_date;
         )SQL";
 
-        std::string orgIdStr =
-            std::to_string(orgId);
+        std::string reciboIdStr =
+            std::to_string(reciboId);
 
-        std::string createdByStr =
-            std::to_string(createdBy);
+        std::string updatedByStr =
+            std::to_string(updatedBy);
 
-        const char* params[3] = {
-            orgIdStr.c_str(),
-            tipoConsumo.c_str(),
-            createdByStr.c_str()
+        const char* params[2] = {
+            reciboIdStr.c_str(),
+            updatedByStr.c_str()
         };
 
         PGresult* result =
             PQexecParams(
                 connection,
                 sql,
-                3,
+                2,
                 nullptr,
                 params,
                 nullptr,
@@ -340,43 +853,57 @@ namespace pizzaMas
             PQclear(result);
             PQfinish(connection);
 
-            return respuesta;
+            return 500;
+        }
+
+        if (PQntuples(result) == 0)
+        {
+            respuesta["error"] =
+                "El recibo no existe o no esta ABIERTO";
+
+            PQclear(result);
+            PQfinish(connection);
+
+            return 409;
         }
 
         respuesta["id"] =
             std::stoll(PQgetvalue(result, 0, 0));
 
-        respuesta["org_id"] =
-            std::stoll(PQgetvalue(result, 0, 1));
-
         respuesta["folio"] =
-            PQgetvalue(result, 0, 2);
+            PQgetvalue(result, 0, 1);
 
         respuesta["fecha_hora"] =
-            PQgetvalue(result, 0, 3);
+            PQgetvalue(result, 0, 2);
 
         respuesta["tipo_consumo"] =
-            PQgetvalue(result, 0, 4);
+            PQgetvalue(result, 0, 3);
 
         respuesta["subtotal"] =
-            std::stod(PQgetvalue(result, 0, 5));
+            std::stod(PQgetvalue(result, 0, 4));
 
         respuesta["descuento"] =
-            std::stod(PQgetvalue(result, 0, 6));
+            std::stod(PQgetvalue(result, 0, 5));
 
         respuesta["impuesto"] =
-            std::stod(PQgetvalue(result, 0, 7));
+            std::stod(PQgetvalue(result, 0, 6));
 
         respuesta["total"] =
-            std::stod(PQgetvalue(result, 0, 8));
+            std::stod(PQgetvalue(result, 0, 7));
 
         respuesta["estatus"] =
-            PQgetvalue(result, 0, 9);
+            PQgetvalue(result, 0, 8);
+
+        respuesta["updated_by"] =
+            std::stoll(PQgetvalue(result, 0, 9));
+
+        respuesta["updated_date"] =
+            PQgetvalue(result, 0, 10);
 
         PQclear(result);
         PQfinish(connection);
 
-        return respuesta;
+        return 200;
     }
 
     int VentasRepository::crearLineaRecibo(
@@ -539,6 +1066,54 @@ namespace pizzaMas
 
         respuesta["created_by"] =
             std::stoll(PQgetvalue(result, 0, 7));
+
+        const char* sqlTotales = R"SQL(SELECT FN_ACTUALIZAR_RECIBO_TOTAL($1::BIGINT);)SQL";
+
+        const char* paramsTotales[1] = {
+            reciboIdStr.c_str()
+        };
+
+        PGresult* resultTotales =
+            PQexecParams(
+                connection,
+                sqlTotales,
+                1,
+                nullptr,
+                paramsTotales,
+                nullptr,
+                nullptr,
+                0
+            );
+
+        if (PQresultStatus(resultTotales) != PGRES_TUPLES_OK)
+        {
+            respuesta["error"] =
+                PQerrorMessage(connection);
+
+            PQclear(resultTotales);
+            PQclear(result);
+            PQfinish(connection);
+
+            return 500;
+        }
+
+        PQclear(resultTotales);
+
+        PGresult* commitResult = PQexec(connection, "COMMIT");
+
+        if (PQresultStatus(commitResult) != PGRES_COMMAND_OK)
+        {
+            respuesta["error"] =
+                PQerrorMessage(connection);
+
+            PQclear(commitResult);
+            PQclear(result);
+            PQfinish(connection);
+
+            return 500;
+        }
+
+        PQclear(commitResult);
 
         PQclear(result);
         PQfinish(connection);

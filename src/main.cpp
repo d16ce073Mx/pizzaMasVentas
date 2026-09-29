@@ -1,34 +1,44 @@
-#include "crow.h"
-#include "config/Config.h"
-#include "controllers/VentasController.h"
-#include "services/VentasService.h"
-#include "repositories/VentasRepository.h"
-#include "config/DotEnv.h"
 #include <iostream>
+
+#include "crow.h"
+
+#include "config/Config.h"
+#include "config/DotEnv.h"
+#include "repositories/VentasRepository.h"
+#include "services/VentasService.h"
+#include "controllers/VentasController.h"
 
 int main()
 {
+    std::cout
+        << "Microservicio de Ventas PizzaMas"
+        << std::endl;
+
     pizzaMas::loadDotEnv(".env");
-    const auto config = pizzaMas::Config::fromEnvironment();
+
+    pizzaMas::Config config =
+        pizzaMas::Config::fromEnvironment();
+
+    pizzaMas::VentasRepository repository(config);
+
+    pizzaMas::VentasService service(repository);
+
     crow::SimpleApp app;
-
-    pizzaMas::VentasRepository ventasRepository(config);
-
-    pizzaMas::VentasService ventasService(ventasRepository);
 
     pizzaMas::VentasController::registerRoutes(
         app,
-        ventasService
+        service
     );
 
-    app.port(config.port);
+    std::cout
+        << "Servidor iniciado en http://"
+        << config.host
+        << ":"
+        << config.port
+        << std::endl;
 
-    std::cout << "PizzaMas - Microservicio de Ventas" << std::endl;
-    std::cout << "Host: " << config.host << std::endl;
-    std::cout << "Puerto: " << config.port << std::endl;
-    std::cout << "Base de datos: " << config.dbName << std::endl;
-
-    app.run();
+    app.port(config.port)
+       .run();
 
     return 0;
 }

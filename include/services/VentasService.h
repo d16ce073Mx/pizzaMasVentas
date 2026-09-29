@@ -30,12 +30,27 @@ namespace pizzaMas
             long long createdBy
         );
 
+        crow::json::wvalue obtenerRecibo(
+            long long reciboId
+        );
+
+        int pagarRecibo(
+            long long reciboId,
+            long long updatedBy,
+            crow::json::wvalue& respuesta
+        );
+
         int crearLineaRecibo(
             long long reciboId,
             long long productoId,
             double cantidad,
             long long createdBy,
             crow::json::wvalue& respuesta
+        );
+
+        int generarPdfRecibo(
+            long long reciboId,
+            const std::string& rutaArchivo
         );
     };
 

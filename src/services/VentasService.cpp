@@ -1,5 +1,5 @@
 #include "services/VentasService.h"
-
+#include "services/PdfService.h"
 namespace pizzaMas
 {
     VentasService::VentasService(VentasRepository& repository)
@@ -44,6 +44,26 @@ namespace pizzaMas
         );
     }
 
+    int VentasService::pagarRecibo(
+        long long reciboId,
+        long long updatedBy,
+        crow::json::wvalue& respuesta)
+    {
+        return repository.pagarRecibo(
+            reciboId,
+            updatedBy,
+            respuesta
+        );
+    }
+
+    crow::json::wvalue VentasService::obtenerRecibo(
+        long long reciboId)
+    {
+        return repository.obtenerRecibo(
+            reciboId
+        );
+    }
+
     int VentasService::crearLineaRecibo(
         long long reciboId,
         long long productoId,
@@ -58,6 +78,58 @@ namespace pizzaMas
             createdBy,
             respuesta
         );
+    }
+
+    int VentasService::generarPdfRecibo(
+        long long reciboId,
+        const std::string& rutaArchivo)
+    {
+        std::string folio;
+        std::string fechaHora;
+        std::string tipoConsumo;
+        std::vector<LineaPdf> lineas;
+
+        double subtotal = 0.0;
+        double descuento = 0.0;
+        double impuesto = 0.0;
+        double total = 0.0;
+
+        std::string estatus;
+
+        int resultado =
+            repository.obtenerDatosPdfRecibo(
+                reciboId,
+                folio,
+                fechaHora,
+                tipoConsumo,
+                lineas,
+                subtotal,
+                descuento,
+                impuesto,
+                total,
+                estatus
+            );
+
+        if (resultado != 200)
+        {
+            return resultado;
+        }
+
+        bool pdfGenerado = 
+            PdfService::generarPdf(
+                rutaArchivo,
+                folio,
+                fechaHora,
+                tipoConsumo,
+                lineas,
+                subtotal,
+                descuento,
+                impuesto,
+                total,
+                ""
+            );
+
+            return pdfGenerado ? 200 : 500;
     }
 
 }
