@@ -31,12 +31,14 @@ namespace pizzaMas
             long long createdBy
         );
 
-        crow::json::wvalue obtenerRecibo(
-            long long reciboId
+        crow::json::wvalue obtenerRecibo(            
+            long long reciboId,
+            long long orgId
         );
 
         int obtenerDatosPdfRecibo(
             long long reciboId,
+            long long orgId,
             std::string& folio,
             std::string& fechaHora,
             std::string& tipoConsumo,
@@ -50,15 +52,24 @@ namespace pizzaMas
 
         int pagarRecibo(
             long long reciboId,
+            long long orgId,
             long long updatedBy,
             crow::json::wvalue& respuesta
         );
 
         int crearLineaRecibo(
             long long reciboId,
+            long long orgId,
             long long productoId,
             double cantidad,
             long long createdBy,
+            crow::json::wvalue& respuesta
+        );
+
+        int finalizarRecibo(
+            const std::string& folio,
+            long long orgId,
+            long long updatedBy,
             crow::json::wvalue& respuesta
         );
 

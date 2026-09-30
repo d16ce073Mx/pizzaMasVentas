@@ -109,11 +109,35 @@ namespace pizzaMas
         });
 
   
-        CROW_ROUTE(app, "/api/ventas/recibos/<int>")
-        ([&service](const crow::request& req, int reciboId) {
+       CROW_ROUTE(app, "/api/ventas/recibos/<int>")
+        ([&service](const crow::request& req, int reciboId)
+        {
+            auto body = crow::json::load(req.body);
+
+            if (!body)
+            {
+                return crow::response(
+                    400,
+                    "{\"error\":\"JSON invalido\"}"
+                );
+            }
+
+            if (!body.has("org_id"))
+            {
+                return crow::response(
+                    400,
+                    "{\"error\":\"Se requiere org_id\"}"
+                );
+            }
+
+            long long orgId =
+                body["org_id"].i();
 
             auto respuesta =
-                service.obtenerRecibo(reciboId);
+                service.obtenerRecibo(
+                    reciboId,
+                    orgId
+                );
 
             std::string json =
                 respuesta.dump();
@@ -139,16 +163,23 @@ namespace pizzaMas
                 );
             }
 
-            if (!body.has("updated_by"))
+
+
+
+
+            if (!body.has("org_id") || !body.has("updated_by"))
             {
                 return crow::response(
                     400,
-                    "El parametro updated_by es requerido"
+                    "Se requieren parámetros requeridos"
                 );
             }
 
             try
             {
+                long long orgId =
+                    body["org_id"].i();
+
                 long long updatedBy =
                     body["updated_by"].i();
 
@@ -157,6 +188,7 @@ namespace pizzaMas
                 int status =
                     service.pagarRecibo(
                         reciboId,
+                        orgId, 
                         updatedBy,
                         respuesta
                     );
@@ -201,6 +233,7 @@ namespace pizzaMas
             }
 
             if (!body.has("producto_id") ||
+                !body.has("org_id") ||
                 !body.has("cantidad") ||
                 !body.has("created_by"))
             {
@@ -214,6 +247,9 @@ namespace pizzaMas
             {
                 long long productoId =
                     body["producto_id"].i();
+
+                long long orgId =
+                    body["org_id"].i();                    
 
                 double cantidad =
                     body["cantidad"].d();
@@ -234,6 +270,7 @@ namespace pizzaMas
                 int status =
                     service.crearLineaRecibo(
                         reciboId,
+                        orgId,
                         productoId,
                         cantidad,
                         createdBy,
@@ -257,71 +294,166 @@ namespace pizzaMas
         CROW_ROUTE(app, "/api/ventas/recibos/<int>/pdf")
         ([&service](const crow::request& req, int reciboId)
         {
-            const std::string rutaArchivo =
+             auto body =
+                crow::json::load(req.body);
+
+            if (!body)
+            {
+                return crow::response(
+                    400,
+                    "JSON invalido"
+                );
+            }
+
+            if (
+                !body.has("org_id") 
+                )
+            {
+                return crow::response(
+                    400,
+                    "Los parametros producto_id, cantidad y created_by son requeridos"
+                );
+            }
+
+            try
+            {
+
+                const std::string rutaArchivo =
                 "recibo_" + std::to_string(reciboId) + ".pdf";
 
+                long long orgId =
+                    body["org_id"].i();                    
+
+                int resultado =
+                    service.generarPdfRecibo(
+                        reciboId,
+                        orgId,
+                        rutaArchivo
+                    );
+
+                if (resultado == 404)
+                {
+                    return crow::response(
+                        404,
+                        "{\"error\":\"El recibo no existe.\"}"
+                    );
+                }
+
+                if (resultado == 409)
+                {
+                    return crow::response(
+                        409,
+                        "{\"error\":\"El recibo no esta pagado\"}"
+                    );
+                }
+
+                if (resultado != 200)
+                {
+                    return crow::response(
+                        500,
+                        "{\"error\":\"No fue posible generar el PDF del recibo\"}"
+                    );
+                }
+                   
+            
+
+                crow::response respuesta(200);
+
+                respuesta.set_header(
+                    "Content-Type",
+                    "application/pdf"
+                );
+
+                respuesta.set_header(
+                    "Content-Disposition",
+                    "inline; filename=\"" +
+                    rutaArchivo +
+                    "\""
+                );
+
+                std::ifstream archivo(rutaArchivo, std::ios::binary);
+
+                if (!archivo)
+                {
+                    return crow::response(
+                        500,
+                        "{\"error\":\"No fue posible abrir el archivo PDF\"}"
+                    );
+                }
+
+                std::string contenido(
+                    (std::istreambuf_iterator<char>(archivo)),
+                    std::istreambuf_iterator<char>()
+                );
+
+                respuesta.body = contenido;
+                std::remove(rutaArchivo.c_str());
+                return respuesta;
+            }             
+            catch (const std::exception&)
+            {
+                return crow::response(
+                    400,
+                    "Parametros invalidos"
+                );
+            }
+        });
+
+        CROW_ROUTE(app, "/api/ventas/recibos/finalizar")
+        .methods(crow::HTTPMethod::POST)
+        ([&service](const crow::request& req)
+        {
+            auto body = crow::json::load(req.body);
+
+            if (!body)
+            {
+                return crow::response(
+                    400,
+                    "{\"error\":\"JSON invalido\"}"
+                );
+            }
+
+            if (!body.has("folio") ||
+                !body.has("org_id") ||
+                !body.has("updated_by"))
+            {
+                return crow::response(
+                    400,
+                    "{\"error\":\"Se requiere folio, org_id y updated_by\"}"
+                );
+            }
+
+            std::string folio =
+                body["folio"].s();
+
+            long long orgId =
+                body["org_id"].i();
+
+            long long updatedBy =
+                body["updated_by"].i();
+
+            crow::json::wvalue respuesta;
+
             int resultado =
-                service.generarPdfRecibo(
-                    reciboId,
-                    rutaArchivo
+                service.finalizarRecibo(
+                    folio,
+                    orgId,
+                    updatedBy,
+                    respuesta
                 );
-
-            if (resultado == 404)
-            {
-                return crow::response(
-                    404,
-                    "{\"error\":\"El recibo no existe.\"}"
-                );
-            }
-
-            if (resultado == 409)
-            {
-                return crow::response(
-                    409,
-                    "{\"error\":\"El recibo no esta pagado\"}"
-                );
-            }
 
             if (resultado != 200)
             {
                 return crow::response(
-                    500,
-                    "{\"error\":\"No fue posible generar el PDF del recibo\"}"
+                    resultado,
+                    respuesta
                 );
             }
 
-            crow::response respuesta(200);
-
-            respuesta.set_header(
-                "Content-Type",
-                "application/pdf"
+            return crow::response(
+                200,
+                respuesta
             );
-
-            respuesta.set_header(
-                "Content-Disposition",
-                "inline; filename=\"" +
-                rutaArchivo +
-                "\""
-            );
-
-            std::ifstream archivo(rutaArchivo, std::ios::binary);
-
-            if (!archivo)
-            {
-                return crow::response(
-                    500,
-                    "{\"error\":\"No fue posible abrir el archivo PDF\"}"
-                );
-            }
-
-            std::string contenido(
-                (std::istreambuf_iterator<char>(archivo)),
-                std::istreambuf_iterator<char>()
-            );
-
-            respuesta.body = contenido;
-            std::remove(rutaArchivo.c_str());
-            return respuesta;
         });
     }
 }

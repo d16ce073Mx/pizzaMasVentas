@@ -46,26 +46,46 @@ namespace pizzaMas
 
     int VentasService::pagarRecibo(
         long long reciboId,
+        long long orgId,
         long long updatedBy,
         crow::json::wvalue& respuesta)
     {
         return repository.pagarRecibo(
             reciboId,
+            orgId,
             updatedBy,
             respuesta
         );
     }
 
+
+    int VentasService::finalizarRecibo(
+        const std::string& folio,
+        long long orgId,
+        long long updatedBy,
+        crow::json::wvalue& respuesta)
+    {
+        return repository.finalizarRecibo(
+            folio,
+            orgId,
+            updatedBy,
+            respuesta
+        );
+    }
+    
     crow::json::wvalue VentasService::obtenerRecibo(
-        long long reciboId)
+        long long reciboId,
+        long long orgId)
     {
         return repository.obtenerRecibo(
-            reciboId
+            reciboId,
+            orgId
         );
     }
 
     int VentasService::crearLineaRecibo(
         long long reciboId,
+        long long orgId,
         long long productoId,
         double cantidad,
         long long createdBy,
@@ -73,6 +93,7 @@ namespace pizzaMas
     {
         return repository.crearLineaRecibo(
             reciboId,
+            orgId,
             productoId,
             cantidad,
             createdBy,
@@ -82,6 +103,7 @@ namespace pizzaMas
 
     int VentasService::generarPdfRecibo(
         long long reciboId,
+        long long orgId,
         const std::string& rutaArchivo)
     {
         std::string folio;
@@ -99,6 +121,7 @@ namespace pizzaMas
         int resultado =
             repository.obtenerDatosPdfRecibo(
                 reciboId,
+                orgId,
                 folio,
                 fechaHora,
                 tipoConsumo,
