@@ -8,6 +8,14 @@ project(pizzaMasVentas
 include(FetchContent)
 
 FetchContent_Declare(
+    Crow
+    GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+    GIT_TAG v1.3.4
+)
+
+FetchContent_MakeAvailable(Crow)
+
+FetchContent_Declare(
     libharu
     GIT_REPOSITORY https://github.com/libharu/libharu.git
     GIT_TAG v2.4.6
@@ -19,14 +27,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Crow REQUIRED)
-find_package(PNG REQUIRED)
 
-set(LIBPQ_ROOT "/usr/local/opt/libpq")
+
+find_package(PNG REQUIRED)
 
 find_path(LIBPQ_INCLUDE_DIR
     NAMES libpq-fe.h
-    PATHS "${LIBPQ_ROOT}/include"
+    PATHS /usr/include/postgresql
     REQUIRED
 )
 
@@ -34,19 +41,19 @@ set(QRENCODE_ROOT "/usr/local/opt/qrencode")
 
 find_path(QRENCODE_INCLUDE_DIR
     NAMES qrencode.h
-    PATHS "${QRENCODE_ROOT}/include"
+    PATHS /usr/include
     REQUIRED
 )
 
 find_library(QRENCODE_LIBRARY
     NAMES qrencode
-    PATHS "${QRENCODE_ROOT}/lib"
+    PATHS /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
     REQUIRED
 )
 
 find_library(LIBPQ_LIBRARY
     NAMES pq
-    PATHS "${LIBPQ_ROOT}/lib"
+    PATHS /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
     REQUIRED
 )
 

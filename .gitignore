@@ -20,3 +20,5 @@ pizzaMasApp
 # Archivos temporales
 *.tmp
 *.log
+db/
+*.dump

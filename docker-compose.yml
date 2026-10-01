@@ -1,0 +1,44 @@
+services:
+
+  postgres:
+    image: postgres:18
+    container_name: PizzaMas
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: pizzamas
+      POSTGRES_USER: pizzamas
+      POSTGRES_PASSWORD: ${PIZZAMAS_DB_PASSWORD}
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - pizzamas_data:/var/lib/postgresql
+      - ./db:/backup:ro
+
+  ventas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: pizzaMasVentas
+    restart: unless-stopped
+
+    depends_on:
+      - postgres
+
+    ports:
+      - "8082:8082"
+
+    environment:
+      PIZZAMAS_HOST: 0.0.0.0
+      PIZZAMAS_PORT: 8082
+      PIZZAMAS_DB_HOST: postgres
+      PIZZAMAS_DB_PORT: 5432
+      PIZZAMAS_DB_NAME: pizzamas
+      PIZZAMAS_DB_USER: pizzamas
+      PIZZAMAS_DB_PASSWORD: Pizzam45
+
+volumes:
+  pizzamas_data:

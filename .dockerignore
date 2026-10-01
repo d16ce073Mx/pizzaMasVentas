@@ -1,0 +1,8 @@
+build/
+.git/
+.github/
+.vscode/
+.DS_Store
+# PostgreSQL backups
+db/  # Docker
+*.dump
