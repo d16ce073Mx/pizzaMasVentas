@@ -18,11 +18,10 @@ namespace pizzaMas
         std::string obtenerMensaje();
         bool probarConexion();
 
-        crow::json::wvalue obtenerProductosVenta();
-
-        crow::json::wvalue obtenerProductoVenta(
-            long long productoId,
-            long long orgId
+        crow::json::wvalue obtenerProductosVenta(
+            long long orgId,
+            long long productoId,            
+            const std::string& tipoProducto
         );
 
         crow::json::wvalue crearRecibo(

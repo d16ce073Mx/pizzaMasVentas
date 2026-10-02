@@ -37,7 +37,11 @@ namespace pizzaMas
         return true;
     }
 
-    crow::json::wvalue VentasRepository::obtenerProductosVenta()
+    crow::json::wvalue VentasRepository::obtenerProductosVenta(
+        long long orgId,
+        long long productoId,            
+        const std::string& tipoProducto
+    )
     {
         crow::json::wvalue respuesta;
         crow::json::wvalue::list productos;
@@ -77,7 +81,12 @@ namespace pizzaMas
             INNER JOIN pm_listas_precios lp
                 ON lp.pm_lista_precio_id = l.pm_lista_precio_id
             WHERE p.pm_producto_ventas = 'VENTAS'
-              AND lp.pm_org_id = 1
+              AND lp.pm_org_id = $1::INTEGER
+              AND p.pm_producto_id =    CASE
+                                           WHEN $2::INTEGER = 0 THEN p.pm_producto_id
+                                           ELSE $2::INTEGER
+                                        END
+              AND ($3::TEXT IS NULL OR p.pm_producto_ventas_tipo = $3::TEXT)
               AND p.pm_fecha_fin IS NULL
               AND lp.pm_fecha_fin IS NULL
               AND l.pm_fecha_fin IS NULL
@@ -85,7 +94,31 @@ namespace pizzaMas
                 p.pm_producto_nombre;
         )SQL";
 
-        PGresult* result = PQexec(connection, sql);
+        std::string productoIdStr = std::to_string(productoId);
+        std::string orgIdStr = std::to_string(orgId);
+
+        const char* tipoProductoParam =
+            tipoProducto.empty() ? nullptr : tipoProducto.c_str();
+
+        const char* params[3] = {
+            orgIdStr.c_str(),
+            productoIdStr.c_str(),
+            tipoProductoParam
+        };          
+
+
+
+       PGresult* result =
+                PQexecParams(
+                    connection,
+                    sql,
+                    3,
+                    nullptr,
+                    params,
+                    nullptr,
+                    nullptr,
+                    0
+                );
 
         if (PQresultStatus(result) != PGRES_TUPLES_OK)
         {
@@ -134,10 +167,14 @@ namespace pizzaMas
 
         return respuesta;
     }
+   
 
-    crow::json::wvalue VentasRepository::obtenerProductoVenta(
-        long long productoId,
-        long long orgId)
+    /*
+    crow::json::wvalue VentasRepository::obtenerProductosVenta(
+        long long orgId,
+        long long productoId,        
+        const std::string& tipoProducto
+    )
         {
             crow::json::wvalue respuesta;
 
@@ -167,38 +204,42 @@ namespace pizzaMas
                     p.pm_producto_codigo,
                     p.pm_producto_nombre,
                     p.pm_producto_descripcion,
-                    p.pm_producto_ventas_tipo,
-                    l.pm_precio_venta,
-                    lp.pm_org_id
-                FROM pm_productos p
-                INNER JOIN pm_listas_precios_lineas l
-                    ON l.pm_producto_id = p.pm_producto_id
-                INNER JOIN pm_listas_precios lp
-                    ON lp.pm_lista_precio_id = l.pm_lista_precio_id
-                WHERE p.pm_producto_id = $1::INTEGER
-                AND p.pm_producto_ventas = 'VENTAS'
-                AND lp.pm_org_id = $2::INTEGER
-                AND p.pm_fecha_fin IS NULL
-                AND lp.pm_fecha_fin IS NULL
-                AND l.pm_fecha_fin IS NULL;
-            )SQL";
+                    p.pm_producto_ventas_tipo             
+                FROM pm_productos p                
+                WHERE 1 = 1                
+                AND p.pm_producto_ventas = 'VENTAS'  
+                AND lp.pm_org_id = $1::INTEGER   
+                AND p.pm_producto_id =  CASE
+                                            WHEN $2::INTEGER = 0 THEN p.pm_producto_id
+                                            ELSE $2::INTEGER
+                                        END  
+                AND ($3::TEXT IS NULL OR p.pm_producto_ventas_tipo = $3::TEXT)                                                                                                                
+                AND p.pm_fecha_fin IS NULL;
+            )SQL";                                        
+
+            std::cout << "Repository productoId: " << productoId << std::endl;
+            std::cout << "Repository orgId: " << orgId << std::endl;
+            std::cout << "Repository Tipo: " << tipoProducto << std::endl;
 
             std::string productoIdStr =
                 std::to_string(productoId);
 
             std::string orgIdStr =
-                std::to_string(orgId);
+                std::to_string(orgId);            
 
-            const char* params[2] = {
-                productoIdStr.c_str(),
+            const char* params[1] = {                
                 orgIdStr.c_str()
+                //,
+                //productoIdStr.c_str()
+                //,
+                //tipoProducto.c_str()
             };
 
             PGresult* result =
                 PQexecParams(
                     connection,
                     sql,
-                    2,
+                    1,
                     nullptr,
                     params,
                     nullptr,
@@ -242,19 +283,20 @@ namespace pizzaMas
 
             respuesta["tipo"] =
                 PQgetvalue(result, 0, 4);
+                */
 
-            respuesta["precio"] =
+        /*    respuesta["precio"] =
                 std::stod(PQgetvalue(result, 0, 5));
 
             respuesta["org_id"] =
                 std::stoll(PQgetvalue(result, 0, 6));
-
-            PQclear(result);
+        */    
+       /*     PQclear(result);
             PQfinish(connection);
 
             return respuesta;
-        }
-
+        } 
+*/
         crow::json::wvalue VentasRepository::crearRecibo(
             long long orgId,
             const std::string& tipoConsumo,

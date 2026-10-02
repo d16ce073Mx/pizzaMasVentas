@@ -13,10 +13,90 @@ namespace pizzaMas
         });
 
         CROW_ROUTE(app, "/api/ventas/productos")
-        ([&service] {
-            return crow::response(
-                service.obtenerProductosVenta()
-            );
+        .methods(crow::HTTPMethod::POST)
+        ([&service](const crow::request& req) {
+
+            auto body =
+                crow::json::load(req.body);
+
+            if (!body)
+            {
+                return crow::response(
+                    400,
+                    "JSON invalido"
+                );
+            }
+
+            if (!body.has("org_id") ||
+                !body.has("tipoProducto") ||
+                !body.has("productoId") )
+            {
+                return crow::response(
+                    400,
+                    "Los parametros org_id son requeridos"
+                );
+            }
+            std::cout << "Controller Body productoId: "  << std::endl;
+            try
+            {
+
+                
+
+                long long orgId =
+                    body["org_id"].i();
+                long long productoId = 0;                
+                if (body.count("productoId") &&
+                    body["productoId"].t() == crow::json::type::Number)
+                {
+                    productoId = body["productoId"].i();
+                }
+                
+                std::string tipoProducto;
+
+                if (body.count("tipoProducto") &&
+                    body["tipoProducto"].t() == crow::json::type::String)
+                {
+                    tipoProducto = std::string(body["tipoProducto"].s());
+                }
+
+                const char* productoIdParam = nullptr;
+
+                std::string productoIdStr;
+                std::string orgIdStr = std::to_string(orgId);
+
+                if (productoId > 0)
+                {
+                    productoIdStr = std::to_string(productoId);
+                    productoIdParam = productoIdStr.c_str();
+                }
+
+                const char* tipoProductoParam = nullptr;
+
+                if (!tipoProducto.empty())
+                {
+                    tipoProductoParam = tipoProducto.c_str();
+                }
+                const char* parametros[3];
+                
+                parametros[0] = productoIdParam;
+                parametros[1] = orgIdStr.c_str();                
+                parametros[2] = tipoProductoParam;
+             
+                return crow::response(
+                    service.obtenerProductosVenta(
+                        orgId,
+                        productoId,                        
+                        tipoProducto
+                    )
+                );
+            }
+            catch (const std::exception&)
+            {
+                return crow::response(
+                    400,
+                    "Parametros invalidos"
+                );
+            }
         });
 
         CROW_ROUTE(app, "/api/ventas/productos/<int>")
@@ -39,9 +119,10 @@ namespace pizzaMas
                     std::stoll(orgIdParam);
 
                 return crow::response(
-                    service.obtenerProductoVenta(
-                        productoId,
-                        orgId
+                    service.obtenerProductosVenta(
+                        orgId,
+                        productoId,                        
+                        ""
                     )
                 );
             }

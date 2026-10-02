@@ -12,24 +12,18 @@ namespace pizzaMas
         return repository.obtenerMensaje();
     }
 
-    crow::json::wvalue VentasService::obtenerProductosVenta()
+    crow::json::wvalue VentasService::obtenerProductosVenta(
+            long long orgId,
+            long long productoId,
+            const std::string& tipoProducto
+    )
     {
-        return repository.obtenerProductosVenta();
+        return repository.obtenerProductosVenta(orgId, productoId,tipoProducto);
     }
 
     bool VentasService::probarConexion()
     {
         return repository.probarConexion();
-    }
-
-    crow::json::wvalue VentasService::obtenerProductoVenta(
-        long long productoId,
-        long long orgId)
-    {
-        return repository.obtenerProductoVenta(
-            productoId,
-            orgId
-        );
     }
 
     crow::json::wvalue VentasService::crearRecibo(
